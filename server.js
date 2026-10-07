@@ -1,0 +1,72 @@
+const express = require('express');
+const sqlite3 = require('sqlite3').verbose();
+const path = require('path');
+
+const app = express();
+const db = new sqlite3.Database('./database.db');
+
+app.use(express.json());
+// Если файлы HTML лежат в корне проекта, укажите __dirname вместо 'public':
+app.use(express.static(__dirname));
+
+// Инициализация таблиц
+db.serialize(() => {
+    db.run(`CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE NOT NULL,
+        password TEXT NOT NULL
+    )`);
+
+    db.run(`CREATE TABLE IF NOT EXISTS orders (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        customer_name TEXT,
+        phone TEXT,
+        comment TEXT,
+        items TEXT,
+        total_price INTEGER,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
+});
+
+// Регистрация
+app.post('/api/register', (req, res) => {
+    const { email, password } = req.body;
+    if (!email || !password) return res.status(400).json({ error: 'Заполните все поля' });
+
+    db.run(`INSERT INTO users (username, password) VALUES (?, ?)`, [email, password], function(err) {
+        if (err) return res.status(400).json({ error: 'Пользователь с таким email уже существует' });
+        res.json({ success: true, userId: this.lastID });
+    });
+});
+
+// Авторизация
+app.post('/api/login', (req, res) => {
+    const { email, password } = req.body;
+    if (!email || !password) return res.status(400).json({ error: 'Заполните все поля' });
+
+    db.get(`SELECT * FROM users WHERE username = ? AND password = ?`, [email, password], (err, user) => {
+        if (err) return res.status(500).json({ error: 'Ошибка сервера' });
+        if (!user) return res.status(400).json({ error: 'Неверный логин или пароль' });
+        res.json({ success: true, user: { id: user.id, username: user.username } });
+    });
+});
+
+// Оформление заказа
+app.post('/api/orders', (req, res) => {
+    const { userId, name, phone, comment, items, totalPrice } = req.body;
+
+    db.run(
+        `INSERT INTO orders (user_id, customer_name, phone, comment, items, total_price) VALUES (?, ?, ?, ?, ?, ?)`,
+        [userId || null, name || null, phone || null, comment || null, JSON.stringify(items || []), totalPrice || 0],
+        function(err) {
+            if (err) {
+                console.error('Ошибка при создании заказа:', err.message);
+                return res.status(500).json({ error: 'Ошибка при сохранении заказа' });
+            }
+            res.json({ success: true, orderId: this.lastID });
+        }
+    );
+});
+
+app.listen(3000, () => console.log('Сервер запущен на http://localhost:3000'));
