@@ -1,13 +1,27 @@
 const express = require('express');
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
+const cors = require('cors');
 
 const app = express();
-const db = new sqlite3.Database('./database.db');
+const PORT = process.env.PORT || 3000;
 
+// Настройка CORS и обработка JSON
+app.use(cors());
 app.use(express.json());
-// Если файлы HTML лежат в корне проекта, укажите __dirname вместо 'public':
-app.use(express.static(__dirname));
+
+// Раздача ВСЕХ статических файлов (index.html, cart.html, auth.html, css, img) из папки public
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Подключение к БД SQLite
+const dbPath = path.resolve(__dirname, 'database.db');
+const db = new sqlite3.Database(dbPath, (err) => {
+    if (err) {
+        console.error('Ошибка подключения к базе данных:', err.message);
+    } else {
+        console.log('Успешное подключение к SQLite.');
+    }
+});
 
 // Инициализация таблиц
 db.serialize(() => {
@@ -24,18 +38,26 @@ db.serialize(() => {
         phone TEXT,
         comment TEXT,
         items TEXT,
-        total_price INTEGER,
+        total_price REAL,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 });
 
+// ==========================================
+// API Маршруты
+// ==========================================
+
 // Регистрация
 app.post('/api/register', (req, res) => {
     const { email, password } = req.body;
-    if (!email || !password) return res.status(400).json({ error: 'Заполните все поля' });
+    if (!email || !password) {
+        return res.status(400).json({ error: 'Заполните все поля' });
+    }
 
     db.run(`INSERT INTO users (username, password) VALUES (?, ?)`, [email, password], function(err) {
-        if (err) return res.status(400).json({ error: 'Пользователь с таким email уже существует' });
+        if (err) {
+            return res.status(400).json({ error: 'Пользователь уже существует' });
+        }
         res.json({ success: true, userId: this.lastID });
     });
 });
@@ -43,30 +65,44 @@ app.post('/api/register', (req, res) => {
 // Авторизация
 app.post('/api/login', (req, res) => {
     const { email, password } = req.body;
-    if (!email || !password) return res.status(400).json({ error: 'Заполните все поля' });
-
     db.get(`SELECT * FROM users WHERE username = ? AND password = ?`, [email, password], (err, user) => {
-        if (err) return res.status(500).json({ error: 'Ошибка сервера' });
-        if (!user) return res.status(400).json({ error: 'Неверный логин или пароль' });
+        if (err || !user) {
+            return res.status(400).json({ error: 'Неверный логин или пароль' });
+        }
         res.json({ success: true, user: { id: user.id, username: user.username } });
     });
 });
 
-// Оформление заказа
+// Заказ
 app.post('/api/orders', (req, res) => {
     const { userId, name, phone, comment, items, totalPrice } = req.body;
+    if (!items || !Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ success: false, error: 'Корзина пуста' });
+    }
 
-    db.run(
-        `INSERT INTO orders (user_id, customer_name, phone, comment, items, total_price) VALUES (?, ?, ?, ?, ?, ?)`,
-        [userId || null, name || null, phone || null, comment || null, JSON.stringify(items || []), totalPrice || 0],
-        function(err) {
-            if (err) {
-                console.error('Ошибка при создании заказа:', err.message);
-                return res.status(500).json({ error: 'Ошибка при сохранении заказа' });
-            }
-            res.json({ success: true, orderId: this.lastID });
+    const query = `INSERT INTO orders (user_id, customer_name, phone, comment, items, total_price) VALUES (?, ?, ?, ?, ?, ?)`;
+    db.run(query, [userId || null, name || 'Гость', phone || null, comment || null, JSON.stringify(items), totalPrice || 0], function(err) {
+        if (err) {
+            return res.status(500).json({ success: false, error: 'Ошибка сохранения заказа' });
         }
-    );
+        res.json({ success: true, orderId: this.lastID });
+    });
 });
 
-app.listen(3000, () => console.log('Сервер запущен на http://localhost:3000'));
+// ==========================================
+// Маршруты страниц
+// ==========================================
+
+// Главная страница
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Все остальные HTML запросы отдают index.html
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+app.listen(PORT, () => {
+    console.log(`Сервер запущен на порту ${PORT}`);
+});
