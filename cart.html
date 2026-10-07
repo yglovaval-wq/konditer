@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Корзина — Народный кондитер</title>
+    <!-- Иконки Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/main.css">
+    <style>
+        .cart-section {
+            padding: 50px 0;
+            min-height: 60vh;
+        }
+
+        .cart-title {
+            font-size: 28px;
+            color: #2C241D;
+            margin-bottom: 25px;
+            text-align: center;
+        }
+
+        .cart-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        }
+
+        .cart-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+
+        .cart-table th, .cart-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+
+        .cart-table th {
+            background-color: #fdfaf7;
+            color: #2C241D;
+        }
+
+        .cart-item-title {
+            font-weight: bold;
+            color: #2C241D;
+        }
+
+        .qty-btn {
+            background: #EF9339;
+            color: white;
+            border: none;
+            width: 28px;
+            height: 28px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .qty-btn:hover {
+            background: #d87f28;
+        }
+
+        .btn-remove {
+            background: none;
+            border: none;
+            color: #e74c3c;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .cart-summary {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 2px solid #2C241D;
+        }
+
+        .total-price {
+            font-size: 20px;
+            font-weight: bold;
+            color: #2C241D;
+        }
+
+        .btn-checkout {
+            padding: 12px 25px;
+            background-color: #EF9339;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .btn-checkout:hover {
+            background-color: #d87f28;
+        }
+
+        .empty-cart-msg {
+            text-align: center;
+            padding: 40px 0;
+            font-size: 18px;
+            color: #777;
+        }
+    </style>
+</head>
+<body>
+    <div class="wrapper">
+        <!-- Шапка сайта -->
+        <header class="container">
+            <span class="logo">Народный кондитер</span>
+            
+            <button class="mobile-menu-btn" id="mobileMenuToggle" aria-label="Открыть меню">
+                <i class="fa-solid fa-bars"></i>
+            </button>
+
+            <nav id="navMenu">
+                <ul>
+                    <li><a href="index.html">Главная</a></li>
+                    <li><a href="index.html#cakes">Торты</a></li>
+                    <li><a href="index.html#contacts">Контакты</a></li>
+                    <li class="active"><a href="cart.html">Корзина <span id="cartCountBadge" class="cart-badge" style="display:none;">0</span></a></li>
+                    <li class="btn" id="authNavBtn"><a href="auth.html">Вход</a></li>
+                </ul>
+            </nav>
+        </header>
+
+        <!-- Секция корзины -->
+        <section class="cart-section container">
+            <h1 class="cart-title">Ваша корзина</h1>
+
+            <div class="cart-container">
+                <div id="cartContent">
+                    <!-- Таблица корзины формируется через JS -->
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Уведомления -->
+    <div id="toastNotification" class="toast-notification"></div>
+
+    <script>
+        function showNotification(message) {
+            const toast = document.getElementById('toastNotification');
+            if (toast) {
+                toast.textContent = message;
+                toast.classList.add('show');
+                setTimeout(() => toast.classList.remove('show'), 2500);
+            } else {
+                alert(message);
+            }
+        }
+
+        function getCart() {
+            return JSON.parse(localStorage.getItem('bakeryCart')) || [];
+        }
+
+        function saveCart(cart) {
+            localStorage.setItem('bakeryCart', JSON.stringify(cart));
+            renderCart();
+            updateCartBadge();
+        }
+
+        function updateCartBadge() {
+            const cart = getCart();
+            const badge = document.getElementById('cartCountBadge');
+            const totalCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+            if (badge) {
+                if (totalCount > 0) {
+                    badge.textContent = totalCount;
+                    badge.style.display = 'inline-block';
+                } else {
+                    badge.style.display = 'none';
+                }
+            }
+        }
+
+        // Проверка входа
+        function isUserLoggedIn() {
+            return localStorage.getItem('isLoggedIn') === 'true';
+        }
+
+        // Отрисовка корзины
+        function renderCart() {
+            const cart = getCart();
+            const container = document.getElementById('cartContent');
+
+            if (cart.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-cart-msg">
+                        <p>Ваша корзина пуста.</p>
+                        <br>
+                        <a href="index.html#cakes" class="btn-checkout" style="display: inline-block; text-decoration: none;">Перейти к выбору тортов</a>
+                    </div>
+                `;
+                return;
+            }
+
+            let totalPrice = 0;
+            let html = `
+                <table class="cart-table">
+                    <thead>
+                        <tr>
+                            <th>Товар</th>
+                            <th>Цена</th>
+                            <th>Количество</th>
+                            <th>Сумма</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            cart.forEach((item, index) => {
+                const itemTotal = item.price * item.quantity;
+                totalPrice += itemTotal;
+
+                html += `
+                    <tr>
+                        <td class="cart-item-title">${item.title}</td>
+                        <td>${item.price} ₽</td>
+                        <td>
+                            <button class="qty-btn" onclick="changeQuantity(${index}, -1)">-</button>
+                            <span style="margin: 0 8px; font-weight: bold;">${item.quantity}</span>
+                            <button class="qty-btn" onclick="changeQuantity(${index}, 1)">+</button>
+                        </td>
+                        <td>${itemTotal} ₽</td>
+                        <td>
+                            <button class="btn-remove" onclick="removeItem(${index})" title="Удалить">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                    </tbody>
+                </table>
+                <div class="cart-summary">
+                    <div class="total-price">Итого: ${totalPrice} ₽</div>
+                    <button class="btn-checkout" onclick="handleCheckout()">Оформить заказ</button>
+                </div>
+            `;
+
+            container.innerHTML = html;
+        }
+
+        // Изменение количества
+        function changeQuantity(index, delta) {
+            const cart = getCart();
+            if (cart[index]) {
+                cart[index].quantity += delta;
+                if (cart[index].quantity <= 0) {
+                    cart.splice(index, 1);
+                }
+                saveCart(cart);
+            }
+        }
+
+        // Удаление товара
+        function removeItem(index) {
+            const cart = getCart();
+            cart.splice(index, 1);
+            saveCart(cart);
+        }
+
+        // -------------------------------------------------------------
+        // Отправка заказа на сервер Node.js для записи в database.db
+        // -------------------------------------------------------------
+        async function handleCheckout() {
+            // 1. Проверка авторизации
+            if (!isUserLoggedIn()) {
+                showNotification('Для оформления заказа необходимо войти в аккаунт!');
+                setTimeout(() => {
+                    window.location.href = 'auth.html';
+                }, 1500);
+                return;
+            }
+
+            const cart = getCart();
+            if (cart.length === 0) return;
+
+            const totalPrice = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+            const userId = localStorage.getItem('userId');
+            const userEmail = localStorage.getItem('userEmail');
+
+            try {
+                // Отправляем данные заказа на ваш сервер Node.js
+                const response = await fetch('/api/orders', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId: userId ? parseInt(userId, 10) : null,
+                        name: userEmail || 'Авторизованный пользователь',
+                        items: cart,
+                        totalPrice: totalPrice
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    // Очищаем корзину после успешного сохранения в SQLite
+                    localStorage.removeItem('bakeryCart');
+                    updateCartBadge();
+                    showNotification(`Заказ №${data.orderId} успешно создан и сохранен в БД!`);
+                    
+                    setTimeout(() => {
+                        window.location.href = 'index.html';
+                    }, 2000);
+                } else {
+                    showNotification(data.error || 'Ошибка при сохранении заказа');
+                }
+            } catch (error) {
+                showNotification('Ошибка подключения к серверу');
+            }
+        }
+
+        // Обновление состояния кнопки авторизации в шапке
+        function updateAuthNav() {
+            const authBtn = document.getElementById('authNavBtn');
+            if (authBtn && isUserLoggedIn()) {
+                const email = localStorage.getItem('userEmail') || 'Профиль';
+                authBtn.innerHTML = `<a href="#" onclick="logoutUser(event)"><i class="fa-solid fa-right-from-bracket"></i> Выйти</a>`;
+            }
+        }
+
+        function logoutUser(e) {
+            e.preventDefault();
+            localStorage.removeItem('isLoggedIn');
+            localStorage.removeItem('userId');
+            localStorage.removeItem('userEmail');
+            window.location.reload();
+        }
+
+        // Мобильное меню
+        const mobileToggle = document.getElementById('mobileMenuToggle');
+        const navMenu = document.getElementById('navMenu');
+        if (mobileToggle && navMenu) {
+            mobileToggle.addEventListener('click', () => {
+                navMenu.classList.toggle('active');
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            renderCart();
+            updateCartBadge();
+            updateAuthNav();
+        });
+    </script>
+</body>
+</html>
