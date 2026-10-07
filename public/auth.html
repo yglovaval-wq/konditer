@@ -131,7 +131,7 @@
                     <li><a href="index.html#cakes">Торты</a></li>
                     <li><a href="index.html#contacts">Контакты</a></li>
                     <li><a href="cart.html">Корзина <span id="cartCountBadge" class="cart-badge" style="display:none;">0</span></a></li>
-                    <li class="btn active"><a href="auth.html">Вход</a></li>
+                    <li class="btn active" id="authNavBtn"><a href="auth.html">Вход</a></li>
                 </ul>
             </nav>
         </header>
@@ -190,11 +190,16 @@
             }
         }
 
+        // Вспомогательная функция получения корзины
+        function getCart() {
+            return JSON.parse(localStorage.getItem('cart')) || JSON.parse(localStorage.getItem('bakeryCart')) || [];
+        }
+
         // Обновление счетчика корзины
         function updateCartBadge() {
-            const cart = JSON.parse(localStorage.getItem('bakeryCart')) || [];
+            const cart = getCart();
             const badge = document.getElementById('cartCountBadge');
-            const totalCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+            const totalCount = cart.reduce((sum, item) => sum + (Number(item.quantity) || 1), 0);
             if (badge) {
                 if (totalCount > 0) {
                     badge.textContent = totalCount;
@@ -241,7 +246,6 @@
                 const data = await response.json();
 
                 if (response.ok && data.success) {
-                    // Сохраняем флаги авторизации и данные пользователя
                     localStorage.setItem('isLoggedIn', 'true');
                     localStorage.setItem('userId', data.user.id);
                     localStorage.setItem('userEmail', data.user.username);
@@ -274,7 +278,6 @@
                 const data = await response.json();
 
                 if (response.ok && data.success) {
-                    // Сохраняем данные нового пользователя
                     localStorage.setItem('isLoggedIn', 'true');
                     localStorage.setItem('userId', data.userId);
                     localStorage.setItem('userEmail', email);
@@ -291,6 +294,23 @@
             }
         });
 
+        // Состояние кнопки входа/выхода
+        function updateAuthNav() {
+            const authBtn = document.getElementById('authNavBtn');
+            const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
+            if (authBtn && isLoggedIn) {
+                authBtn.innerHTML = `<a href="#" onclick="logoutUser(event)"><i class="fa-solid fa-right-from-bracket"></i> Выйти</a>`;
+            }
+        }
+
+        function logoutUser(e) {
+            e.preventDefault();
+            localStorage.removeItem('isLoggedIn');
+            localStorage.removeItem('userId');
+            localStorage.removeItem('userEmail');
+            window.location.reload();
+        }
+
         // Мобильное меню
         const mobileToggle = document.getElementById('mobileMenuToggle');
         const navMenu = document.getElementById('navMenu');
@@ -300,7 +320,10 @@
             });
         }
 
-        document.addEventListener('DOMContentLoaded', updateCartBadge);
+        document.addEventListener('DOMContentLoaded', () => {
+            updateCartBadge();
+            updateAuthNav();
+        });
     </script>
 </body>
 </html>
