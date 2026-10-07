@@ -197,7 +197,8 @@
     </div>
 
     <div id="toastNotification" class="toast-notification">Товар добавлен в корзину!</div>
-<!-- Скрипты -->
+
+    <!-- Скрипты -->
     <script>
         // Проверка авторизации пользователя
         function isUserLoggedIn() {
@@ -228,17 +229,20 @@
             });
         }
 
-        // Работа с корзиной
-        function getCart() { return JSON.parse(localStorage.getItem('bakeryCart')) || []; }
+        // Работа с корзиной (используем единый ключ 'cart')
+        function getCart() { 
+            return JSON.parse(localStorage.getItem('cart')) || JSON.parse(localStorage.getItem('bakeryCart')) || []; 
+        }
+
         function saveCart(cart) {
-            localStorage.setItem('bakeryCart', JSON.stringify(cart));
+            localStorage.setItem('cart', JSON.stringify(cart));
             updateCartBadge();
         }
 
         function updateCartBadge() {
             const cart = getCart();
             const badge = document.getElementById('cartCountBadge');
-            const totalCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+            const totalCount = cart.reduce((sum, item) => sum + (Number(item.quantity) || 1), 0);
             if (badge) {
                 if (totalCount > 0) {
                     badge.textContent = totalCount;
@@ -258,7 +262,7 @@
             }
         }
 
-        // Добавление товаров в корзину
+        // Добавление товаров в корзину с совместимыми полями name, title, price, image, img
         const cakesGrid = document.getElementById('cakesGrid');
         if (cakesGrid) {
             cakesGrid.addEventListener('click', (e) => {
@@ -277,7 +281,15 @@
                 if (existingItem) {
                     existingItem.quantity += 1;
                 } else {
-                    cart.push({ id, name, price, img: imgSrc, quantity: 1 });
+                    cart.push({ 
+                        id: id, 
+                        name: name,
+                        title: name,
+                        price: price, 
+                        image: imgSrc,
+                        img: imgSrc, 
+                        quantity: 1 
+                    });
                 }
 
                 saveCart(cart);
@@ -321,19 +333,16 @@
             quickForm.addEventListener('submit', (e) => {
                 e.preventDefault();
 
-                // 1. Проверяем, авторизован ли пользователь
                 if (!isUserLoggedIn()) {
                     if (modal) modal.classList.remove('active');
                     showNotification('Для оформления заказа сначала войдите в аккаунт!');
                     
-                    // Перенаправляем на форму входа через 1.5 секунды
                     setTimeout(() => {
                         window.location.href = 'auth.html';
                     }, 1500);
                     return;
                 }
 
-                // 2. Если авторизован, отправляем заказ
                 if (modal) modal.classList.remove('active');
                 showNotification('Спасибо! Мы свяжемся с вами в ближайшее время.');
                 quickForm.reset();
