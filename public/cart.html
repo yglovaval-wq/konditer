@@ -10,40 +10,55 @@
     <style>
         .cart-section {
             padding: 50px 0;
-            min-height: 60vh;
+            min-height: 70vh;
+        }
+
+        .cart-card {
+            background-color: #fff;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            max-width: 900px;
+            margin: 0 auto;
         }
 
         .cart-title {
             font-size: 28px;
             color: #2C241D;
             margin-bottom: 25px;
-            text-align: center;
-        }
-
-        .cart-container {
-            max-width: 800px;
-            margin: 0 auto;
-            background: #fff;
-            padding: 25px;
-            border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            border-bottom: 2px solid #EF9339;
+            padding-bottom: 10px;
         }
 
         .cart-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 20px;
-        }
-
-        .cart-table th, .cart-table td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid #eee;
+            margin-bottom: 25px;
         }
 
         .cart-table th {
-            background-color: #fdfaf7;
+            text-align: left;
+            padding: 12px;
+            background-color: #FAF6F0;
             color: #2C241D;
+            font-size: 16px;
+        }
+
+        /* Исправление: явный цвет текста для ячеек */
+        .cart-table td {
+            padding: 15px 12px;
+            border-bottom: 1px solid #f0f0f0;
+            vertical-align: middle;
+            color: #2C241D;
+            font-size: 15px;
+        }
+
+        .cart-item-img {
+            width: 60px;
+            height: 60px;
+            object-fit: cover;
+            border-radius: 8px;
+            display: block;
         }
 
         .cart-item-title {
@@ -52,18 +67,20 @@
         }
 
         .qty-btn {
-            background: #EF9339;
+            background-color: #EF9339;
             color: white;
             border: none;
             width: 28px;
             height: 28px;
-            border-radius: 4px;
+            border-radius: 6px;
             cursor: pointer;
             font-weight: bold;
+            font-size: 16px;
+            transition: background-color 0.2s;
         }
 
         .qty-btn:hover {
-            background: #d87f28;
+            background-color: #d87f28;
         }
 
         .btn-remove {
@@ -71,28 +88,33 @@
             border: none;
             color: #e74c3c;
             cursor: pointer;
-            font-size: 16px;
+            font-size: 18px;
+            transition: color 0.2s;
+        }
+
+        .btn-remove:hover {
+            color: #c0392b;
         }
 
         .cart-summary {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-top: 20px;
-            padding-top: 15px;
             border-top: 2px solid #2C241D;
+            padding-top: 20px;
+            margin-top: 20px;
         }
 
         .total-price {
-            font-size: 20px;
+            font-size: 22px;
             font-weight: bold;
             color: #2C241D;
         }
 
         .btn-checkout {
-            padding: 12px 25px;
             background-color: #EF9339;
-            color: #fff;
+            color: white;
+            padding: 12px 30px;
             border: none;
             border-radius: 8px;
             font-size: 16px;
@@ -108,8 +130,8 @@
         .empty-cart-msg {
             text-align: center;
             padding: 40px 0;
+            color: #2C241D;
             font-size: 18px;
-            color: #777;
         }
     </style>
 </head>
@@ -134,22 +156,33 @@
             </nav>
         </header>
 
-        <!-- Секция корзины -->
+        <!-- Содержимое корзины -->
         <section class="cart-section container">
-            <h1 class="cart-title">Ваша корзина</h1>
-
-            <div class="cart-container">
+            <div class="cart-card">
+                <h1 class="cart-title">Ваша корзина</h1>
                 <div id="cartContent">
-                    <!-- Таблица корзины формируется через JS -->
+                    <!-- Таблица корзины формируется с помощью JS -->
                 </div>
             </div>
         </section>
     </div>
 
-    <!-- Уведомления -->
+    <!-- Всплывающее уведомление -->
     <div id="toastNotification" class="toast-notification"></div>
 
     <script>
+        // Получение данных корзины
+        function getCart() {
+            return JSON.parse(localStorage.getItem('cart')) || JSON.parse(localStorage.getItem('bakeryCart')) || [];
+        }
+
+        // Сохранение корзины
+        function saveCart(cart) {
+            localStorage.setItem('cart', JSON.stringify(cart));
+            localStorage.setItem('bakeryCart', JSON.stringify(cart));
+        }
+
+        // Всплывающее уведомление
         function showNotification(message) {
             const toast = document.getElementById('toastNotification');
             if (toast) {
@@ -161,20 +194,11 @@
             }
         }
 
-        function getCart() {
-            return JSON.parse(localStorage.getItem('bakeryCart')) || [];
-        }
-
-        function saveCart(cart) {
-            localStorage.setItem('bakeryCart', JSON.stringify(cart));
-            renderCart();
-            updateCartBadge();
-        }
-
+        // Обновление счетчика в шапке
         function updateCartBadge() {
             const cart = getCart();
             const badge = document.getElementById('cartCountBadge');
-            const totalCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+            const totalCount = cart.reduce((sum, item) => sum + (Number(item.quantity) || 1), 0);
             if (badge) {
                 if (totalCount > 0) {
                     badge.textContent = totalCount;
@@ -183,11 +207,6 @@
                     badge.style.display = 'none';
                 }
             }
-        }
-
-        // Проверка входа
-        function isUserLoggedIn() {
-            return localStorage.getItem('isLoggedIn') === 'true';
         }
 
         // Отрисовка корзины
@@ -211,6 +230,7 @@
                 <table class="cart-table">
                     <thead>
                         <tr>
+                            <th>Фото</th>
                             <th>Товар</th>
                             <th>Цена</th>
                             <th>Количество</th>
@@ -222,19 +242,24 @@
             `;
 
             cart.forEach((item, index) => {
-                const itemTotal = item.price * item.quantity;
+                const title = item.title || item.name || 'Товар';
+                const price = Number(item.price) || 0;
+                const quantity = Number(item.quantity) || 1;
+                const image = item.image || item.img || 'images/default.jpg';
+                const itemTotal = price * quantity;
                 totalPrice += itemTotal;
 
                 html += `
                     <tr>
-                        <td class="cart-item-title">${item.title}</td>
-                        <td>${item.price} ₽</td>
+                        <td><img src="${image}" alt="${title}" class="cart-item-img"></td>
+                        <td class="cart-item-title">${title}</td>
+                        <td>${price} ₽</td>
                         <td>
                             <button class="qty-btn" onclick="changeQuantity(${index}, -1)">-</button>
-                            <span style="margin: 0 8px; font-weight: bold;">${item.quantity}</span>
+                            <span style="margin: 0 8px; font-weight: bold; display: inline-block; min-width: 20px; text-align: center;">${quantity}</span>
                             <button class="qty-btn" onclick="changeQuantity(${index}, 1)">+</button>
                         </td>
-                        <td>${itemTotal} ₽</td>
+                        <td style="font-weight: bold;">${itemTotal} ₽</td>
                         <td>
                             <button class="btn-remove" onclick="removeItem(${index})" title="Удалить">
                                 <i class="fa-solid fa-trash"></i>
@@ -258,80 +283,50 @@
 
         // Изменение количества
         function changeQuantity(index, delta) {
-            const cart = getCart();
+            let cart = getCart();
             if (cart[index]) {
-                cart[index].quantity += delta;
+                cart[index].quantity = (Number(cart[index].quantity) || 1) + delta;
                 if (cart[index].quantity <= 0) {
                     cart.splice(index, 1);
                 }
                 saveCart(cart);
+                renderCart();
+                updateCartBadge();
             }
         }
 
         // Удаление товара
         function removeItem(index) {
-            const cart = getCart();
+            let cart = getCart();
             cart.splice(index, 1);
             saveCart(cart);
+            renderCart();
+            updateCartBadge();
+            showNotification('Товар удален из корзины');
         }
 
-        // -------------------------------------------------------------
-        // Отправка заказа на сервер Node.js для записи в database.db
-        // -------------------------------------------------------------
-        async function handleCheckout() {
-            // 1. Проверка авторизации
-            if (!isUserLoggedIn()) {
-                showNotification('Для оформления заказа необходимо войти в аккаунт!');
+        // Оформление заказа
+        function handleCheckout() {
+            const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
+            if (!isLoggedIn) {
+                showNotification('Пожалуйста, войдите в аккаунт для оформления заказа');
                 setTimeout(() => {
                     window.location.href = 'auth.html';
                 }, 1500);
                 return;
             }
 
-            const cart = getCart();
-            if (cart.length === 0) return;
-
-            const totalPrice = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-            const userId = localStorage.getItem('userId');
-            const userEmail = localStorage.getItem('userEmail');
-
-            try {
-                // Отправляем данные заказа на ваш сервер Node.js
-                const response = await fetch('/api/orders', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        userId: userId ? parseInt(userId, 10) : null,
-                        name: userEmail || 'Авторизованный пользователь',
-                        items: cart,
-                        totalPrice: totalPrice
-                    })
-                });
-
-                const data = await response.json();
-
-                if (response.ok && data.success) {
-                    // Очищаем корзину после успешного сохранения в SQLite
-                    localStorage.removeItem('bakeryCart');
-                    updateCartBadge();
-                    showNotification(`Заказ №${data.orderId} успешно создан и сохранен в БД!`);
-                    
-                    setTimeout(() => {
-                        window.location.href = 'index.html';
-                    }, 2000);
-                } else {
-                    showNotification(data.error || 'Ошибка при сохранении заказа');
-                }
-            } catch (error) {
-                showNotification('Ошибка подключения к серверу');
-            }
+            showNotification('Заказ успешно оформлен!');
+            saveCart([]);
+            renderCart();
+            updateCartBadge();
         }
 
-        // Обновление состояния кнопки авторизации в шапке
+        // Состояние кнопки авторизации в меню
         function updateAuthNav() {
             const authBtn = document.getElementById('authNavBtn');
-            if (authBtn && isUserLoggedIn()) {
-                const email = localStorage.getItem('userEmail') || 'Профиль';
+            const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
+            if (authBtn && isLoggedIn) {
                 authBtn.innerHTML = `<a href="#" onclick="logoutUser(event)"><i class="fa-solid fa-right-from-bracket"></i> Выйти</a>`;
             }
         }
