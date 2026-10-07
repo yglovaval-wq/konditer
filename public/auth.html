@@ -167,7 +167,11 @@
                     </div>
                     <div class="input-box">
                         <i class="fa-solid fa-lock"></i>
-                        <input type="password" id="regPassword" placeholder="Пароль" required>
+                        <input type="password" id="regPassword" placeholder="Придумайте пароль" required>
+                    </div>
+                    <div class="input-box">
+                        <i class="fa-solid fa-shield-halved"></i>
+                        <input type="password" id="regPasswordConfirm" placeholder="Повторите пароль" required>
                     </div>
                     <button type="submit" class="btn-submit">Зарегистрироваться</button>
                 </form>
@@ -262,11 +266,18 @@
             }
         });
 
-        // 2. РЕГИСТРАЦИЯ (через сервер Node.js)
+        // 2. РЕГИСТРАЦИЯ С ПРОВЕРКОЙ СОВПАДЕНИЯ ПАРОЛЕЙ
         registerForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const email = document.getElementById('regEmail').value;
             const password = document.getElementById('regPassword').value;
+            const passwordConfirm = document.getElementById('regPasswordConfirm').value;
+
+            // Проверка: совпадают ли пароли
+            if (password !== passwordConfirm) {
+                showNotification('Пароли не совпадают!');
+                return; // Останавливает отправку запроса на сервер
+            }
 
             try {
                 const response = await fetch('/api/register', {
